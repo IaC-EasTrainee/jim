@@ -1,0 +1,40 @@
+name: iac pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: infra-runner
+    uses: Enterprise-Automation/IaC-Workflows/.github/workflows/validate.yml@main
+
+  
+  create-token:
+    name: Create GitHub App Token
+    if: github.event_name == 'push'
+    runs-on: infra-runner
+    needs: validate
+    outputs:
+      token: ${{ steps.app-token.outputs.token }}
+    steps:
+      - name: Create GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push'
+    runs-on: infra-runner
+    needs: create-token
+    uses: Enterprise-Automation/IaC-Workflows/.github/workflows/deploy.yml@main
+    env:
+      GITHUB_TOKEN: ${{ needs.create-token.outputs.token }}
+
+  
